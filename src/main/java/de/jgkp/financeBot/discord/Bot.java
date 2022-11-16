@@ -55,8 +55,6 @@ public class Bot {
         System.out.println("Updated Commands");
     }
 
-
-
     public void updateCommands() {
         //Global
         List<CommandData> commandData = new ArrayList<>();
@@ -66,5 +64,6 @@ public class Bot {
         commandData.add(Commands.slash("mitgliedschaftsinfos", "Sendet dir allgemeine Informationen über die 1JGKP-Mitgliedschaft per DM"));
 
         jda.updateCommands().addCommands(commandData).queue();
+
     }
 }

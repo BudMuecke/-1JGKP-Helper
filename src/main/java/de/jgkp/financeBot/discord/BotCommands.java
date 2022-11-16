@@ -1,8 +1,10 @@
 package de.jgkp.financeBot.discord;
 
 import de.jgkp.financeBot.db.entities.Accounts;
+import de.jgkp.financeBot.db.entities.Candidate;
 import de.jgkp.financeBot.db.entities.Settings;
 import de.jgkp.financeBot.db.repositories.AccountsRepository;
+import de.jgkp.financeBot.db.repositories.CandidateRepository;
 import de.jgkp.financeBot.db.repositories.SettingsRepository;
 import de.jgkp.financeBot.service.Services;
 import net.dv8tion.jda.api.entities.Guild;
@@ -44,14 +46,16 @@ public class BotCommands extends ListenerAdapter {
     private DiscordReminderEvents discordReminderEvents;
     private SettingsRepository settingsRepository;
     private Embeds embeds;
+    private CandidateRepository candidateRepository;
 
     @Autowired
-    public BotCommands(AccountsRepository accountsRepository, Services services, DiscordReminderEvents discordReminderEvents, SettingsRepository settingsRepository, Embeds embeds) {
+    public BotCommands(AccountsRepository accountsRepository, Services services, DiscordReminderEvents discordReminderEvents, SettingsRepository settingsRepository, Embeds embeds, CandidateRepository candidateRepository) {
         this.accountsRepository = accountsRepository;
         this.services = services;
         this.discordReminderEvents = discordReminderEvents;
         this.settingsRepository = settingsRepository;
         this.embeds = embeds;
+        this.candidateRepository = candidateRepository;
     }
 
     @Override
@@ -60,19 +64,6 @@ public class BotCommands extends ListenerAdapter {
             OptionMapping userOption = event.getOption("benutzer");
             OptionMapping dateOption = event.getOption("zahlungsdatum");
             OptionMapping amountOption = event.getOption("betrag");
-
-            if (userOption == null) {
-                event.deferReply().queue();
-                event.getHook().sendMessage("Fehler: Benutzer wurde nicht angegeben.").setEphemeral(true).queue();
-            }
-            if (dateOption == null) {
-                event.deferReply().queue();
-                event.getHook().sendMessage("Fehler: Zahlungsdatum wurde nicht angegeben.").setEphemeral(true).queue();
-            }
-            if (amountOption == null) {
-                event.deferReply().queue();
-                event.getHook().sendMessage("Fehler: Betrag wurde nicht angegeben.").setEphemeral(true).queue();
-            }
 
             assert userOption != null;
             User user = userOption.getAsUser();
@@ -91,7 +82,8 @@ public class BotCommands extends ListenerAdapter {
                     return;
                 }
             } catch (ParseException e) {
-                throw new RuntimeException(e);
+                event.reply("Das Zahlungsdatum muss im Format tt.MM.jjjj sein! Bitte versuche es erneut.").setEphemeral(true).queue();
+                return;
             }
 
             if (isUserExisting) {
@@ -217,6 +209,11 @@ public class BotCommands extends ListenerAdapter {
 
                 List<Accounts> accountsList = accountsRepository.findAll();
 
+                if (accountsList.size() == 0) {
+                    event.reply("Es gibt keinen Benutzer in der Datenbank.").setEphemeral(true).queue();
+                    return;
+                }
+
                 extractDataFromList(event, accountsList);
 
             } else if (userOption == null && minimumDaysOption == null) {
@@ -224,11 +221,21 @@ public class BotCommands extends ListenerAdapter {
                 double maximumDays = maximumDaysOption.getAsDouble();
                 List<Accounts> accountsList = accountsRepository.findAllByMembershipDaysLeftLessThanEqual(maximumDays);
 
+                if (accountsList.size() == 0) {
+                    event.reply("Es gibt keinen Benutzer in der Datenbank, auf den der angegebene Zeitrahmen zutrifft.").setEphemeral(true).queue();
+                    return;
+                }
+
                 extractDataFromList(event, accountsList);
             } else if (userOption == null && maximumDaysOption == null) {
 
                 double minimumDays = minimumDaysOption.getAsDouble();
                 List<Accounts> accountsList = accountsRepository.findAllByMembershipDaysLeftGreaterThanEqual(minimumDays);
+
+                if (accountsList.size() == 0) {
+                    event.reply("Es gibt keinen Benutzer in der Datenbank, auf den der angegebene Zeitrahmen zutrifft.").setEphemeral(true).queue();
+                    return;
+                }
 
                 extractDataFromList(event, accountsList);
 
@@ -260,18 +267,21 @@ public class BotCommands extends ListenerAdapter {
             Settings settings = settingsRepository.findSettingsById(1L);
             String notificationChannelName = event.getJDA().getTextChannelById(settings.getLeaderChannelId()).getName();
             String spamChannelName = event.getJDA().getTextChannelById(settings.getHelperSpamChannelId()).getName();
+            String recruitmentChannelName = event.getJDA().getTextChannelById(settings.getRecruitmentChannelId()).getName();
+            String recruitmentChannelId = settings.getRecruitmentChannelId();
             String notificationChannelId = settings.getLeaderChannelId();
             String spamChannelId = settings.getHelperSpamChannelId();
             int membershipEndsInXDaysReminder = settings.getMembershipExpiresInXDaysReminderDaysAmount();
             double dalyMembershipFee = settings.getDailyMembershipFee();
 
-            event.getJDA().getTextChannelById(settingsRepository.findSettingsById(1L).getHelperSpamChannelId()).sendMessageEmbeds(embeds.createEmbedSettings(dalyMembershipFee, membershipEndsInXDaysReminder, notificationChannelId, spamChannelId, notificationChannelName, spamChannelName).build()).queue();
+            event.getJDA().getTextChannelById(settingsRepository.findSettingsById(1L).getHelperSpamChannelId()).sendMessageEmbeds(embeds.createEmbedSettings(dalyMembershipFee, membershipEndsInXDaysReminder, notificationChannelId, spamChannelId, recruitmentChannelId, notificationChannelName, spamChannelName, recruitmentChannelName).build()).queue();
             event.reply("Die angefragten Informationen wurden in " + event.getJDA().getTextChannelById(settingsRepository.findSettingsById(1L).getHelperSpamChannelId()).getName() + " gesendet").setEphemeral(true).queue();
         } else if (event.getName().equals("admin-ändere-einstellungen")) {
             OptionMapping dailyMembershipFee = event.getOption("tägliche-mitgliedschaftsgebühr");
             OptionMapping reminderDays = event.getOption("erinnerung-x-tage-vor-ablauf");
             OptionMapping spamChannelId = event.getOption("spam-kanal-id");
             OptionMapping notificationChannelId = event.getOption("benachrichtigungskanal-id");
+            OptionMapping recruitmentChannelId = event.getOption("recruitmentkanal-id");
 
             Settings settings = settingsRepository.findSettingsById(1L);
 
@@ -290,6 +300,11 @@ public class BotCommands extends ListenerAdapter {
             if (notificationChannelId != null) {
                 settings.setLeaderChannelId(notificationChannelId.getAsString());
             }
+
+            if (recruitmentChannelId != null) {
+                settings.setRecruitmentChannelId(recruitmentChannelId.getAsString());
+            }
+
             settingsRepository.save(settings);
             event.reply("Du hast die Einstellungen erfolgreich geändert").setEphemeral(true).queue();
         } else if (event.getName().equals("admin-schreibe-laufzeit-gut")) {
@@ -331,8 +346,93 @@ public class BotCommands extends ListenerAdapter {
             } else {
                 event.reply("Du hast keine 1JGKP Mitgliedschaft. Nutze /mitgliedschaftsinfos um mehr zu erfahren").setEphemeral(true).queue();
             }
-        }else if (event.getName().equals("recruiter-erstelle-erinnerung")) {
+        } else if (event.getName().equals("recruiter-erstelle-erinnerung")) {
+            OptionMapping optionUser = event.getOption("benutzer");
+            OptionMapping optionEnddatum = event.getOption("enddatum");
+            OptionMapping optionStatus = event.getOption("status");
 
+            assert optionEnddatum != null;
+            String date = optionEnddatum.getAsString();
+
+            assert optionUser != null;
+            User user = optionUser.getAsUser();
+
+            assert optionStatus != null;
+            String status = optionStatus.getAsString();
+
+            try {
+                if (services.calcDayDifferenceRecruitment(date) == 1) {
+                    event.reply("Das Erinnerungsdatum kann nur ein zukünftiges Datum sein! Bitte versuche es erneut.").setEphemeral(true).queue();
+                    return;
+                }
+            } catch (ParseException e) {
+                event.reply("Das Erinnerungsdatum muss im Format tt.MM.jjjj sein! Bitte versuche es erneut.").setEphemeral(true).queue();
+                return;
+            }
+            Candidate candidate = new Candidate();
+            candidate.setUserId(user.getIdLong());
+            candidate.setUserName(user.getName());
+            candidate.setEndDate(date);
+            candidate.setStatus(status);
+            candidateRepository.save(candidate);
+
+            event.reply("Die Erinnerung wurde erfolgreich erstellt!").setEphemeral(true).queue();
+        } else if (event.getName().equals("recruiter-zeige-erinnerungen")) {
+            OptionMapping userOption = event.getOption("benutzer");
+            OptionMapping statusOption = event.getOption("status");
+
+            if (userOption != null) {
+                User user = userOption.getAsUser();
+                Candidate candidate = candidateRepository.findCandidateByUserId(user.getIdLong());
+
+                if (candidate == null) {
+                    event.reply("Es gibt keine Erinnerung zu diesem Nutzer in der Datenbank.").setEphemeral(true).queue();
+                    return;
+                }
+                event.getJDA().getTextChannelById(settingsRepository.findSettingsById(1L).getRecruitmentChannelId()).sendMessageEmbeds(embeds.createEmbedCandidateInfo(candidate.getUserName(), candidate.getStatus(), candidate.getEndDate()).build()).queue();
+                event.reply("Die angefragten Informationen wurden in " + event.getJDA().getTextChannelById(settingsRepository.findSettingsById(1L).getRecruitmentChannelId()).getName() + " gesendet").setEphemeral(true).queue();
+
+            } else if (statusOption != null) {
+                String status = statusOption.getAsString();
+                if (status.equals("Anwärter")){
+                    List<Candidate> candidateList = candidateRepository.findAllByStatusContaining("Anwärter");
+
+                    if (candidateList.size() == 0) {
+                        event.reply("Es gibt keine Erinnerungen zu 'Anwärter' in der Datenbank.").setEphemeral(true).queue();
+                        return;
+                    }
+                    for (int i = 0; i < candidateList.size(); i++){
+                        Candidate candidate = candidateList.get(i);
+                        event.getJDA().getTextChannelById(settingsRepository.findSettingsById(1L).getRecruitmentChannelId()).sendMessageEmbeds(embeds.createEmbedCandidateInfo(candidate.getUserName(), candidate.getStatus(), candidate.getEndDate()).build()).queue();
+                    }
+                    event.reply("Die angefragten Informationen wurden in " + event.getJDA().getTextChannelById(settingsRepository.findSettingsById(1L).getRecruitmentChannelId()).getName() + " gesendet").setEphemeral(true).queue();
+
+                } else if (status.equals("Probezeit")) {
+                    List<Candidate> candidateList = candidateRepository.findAllByStatusContaining("Probezeit");
+
+                    if (candidateList.size() == 0) {
+                        event.reply("Es gibt keine Erinnerungen zu 'Probezeit' in der Datenbank.").setEphemeral(true).queue();
+                        return;
+                    }
+                    for (int i = 0; i < candidateList.size(); i++){
+                        Candidate candidate = candidateList.get(i);
+                        event.getJDA().getTextChannelById(settingsRepository.findSettingsById(1L).getRecruitmentChannelId()).sendMessageEmbeds(embeds.createEmbedCandidateInfo(candidate.getUserName(), candidate.getStatus(), candidate.getEndDate()).build()).queue();
+                    }
+                    event.reply("Die angefragten Informationen wurden in " + event.getJDA().getTextChannelById(settingsRepository.findSettingsById(1L).getRecruitmentChannelId()).getName() + " gesendet").setEphemeral(true).queue();
+                }
+            }else {
+                List<Candidate> candidateList = candidateRepository.findAll();
+
+                if (candidateList.size() == 0) {
+                    event.reply("Es gibt keine Erinnerungen in der Datenbank.").setEphemeral(true).queue();
+                    return;
+                }
+                for (int i = 0; i < candidateList.size(); i++){
+                    Candidate candidate = candidateList.get(i);
+                    event.getJDA().getTextChannelById(settingsRepository.findSettingsById(1L).getRecruitmentChannelId()).sendMessageEmbeds(embeds.createEmbedCandidateInfo(candidate.getUserName(), candidate.getStatus(), candidate.getEndDate()).build()).queue();
+                }
+                event.reply("Die angefragten Informationen wurden in " + event.getJDA().getTextChannelById(settingsRepository.findSettingsById(1L).getRecruitmentChannelId()).getName() + " gesendet").setEphemeral(true).queue();
+            }
         }
     }
 
@@ -460,7 +560,8 @@ public class BotCommands extends ListenerAdapter {
                         new OptionData(OptionType.NUMBER, "tägliche-mitgliedschaftsgebühr", "Die Mitglieschaftsgebühr, die täglich erhoben wird. Format: xxx.xx", false).setRequiredRange(0.01, 9007199254740991.000000),
                         new OptionData(OptionType.INTEGER, "erinnerung-x-tage-vor-ablauf", "Die Anzahl an Tagen, bei denen die erste Erinnerung gesendet werden soll", false),
                         new OptionData(OptionType.STRING, "spam-kanal-id", "Die ID des Textkanals in den der Bot die Antworten senden soll", false),
-                        new OptionData(OptionType.STRING, "benachrichtigungskanal-id", "Die ID des Textkanals in den der Bot Benachrichtigungen senden soll", false)));
+                        new OptionData(OptionType.STRING, "benachrichtigungskanal-id", "Die ID des Textkanals in den der Bot Benachrichtigungen senden soll", false),
+                        new OptionData(OptionType.STRING, "recruitmentkanal-id", "Die ID des Textkanals in den der Bot Recruitment-Erinnerungen senden soll", false)));
 
         commandData.add(Commands.slash("admin-schreibe-laufzeit-gut", "Schreibt einem Benutzer eine bestimmte Laufzeit gut").setDefaultPermissions(DefaultMemberPermissions.DISABLED)
                 .addOptions(
@@ -474,9 +575,16 @@ public class BotCommands extends ListenerAdapter {
 
         commandData.add(Commands.slash("recruiter-erstelle-erinnerung", "Erstelle eine Erinnerung für das Recruitment").setDefaultPermissions(DefaultMemberPermissions.DISABLED)
                 .addOptions(
-                        new OptionData(OptionType.USER, "benutzer", "Der Nutzern, von dem eine Erinnerung erstellt werden soll für das Recruitment", true),
+                        new OptionData(OptionType.USER, "benutzer", "Der Nutzern, zu dem eine Erinnerung erstellt werden soll", true),
                         new OptionData(OptionType.STRING, "enddatum", "Das Datum, an dem die Erinnerung gesendet werden soll. Format: tt.MM.jjjj", true),
                         new OptionData(OptionType.STRING, "status", "Der Status, den der Nutzer hat", true)
+                                .addChoice("Anwärter", "Anwärter")
+                                .addChoice("Probezeit", "Probezeit")));
+
+        commandData.add(Commands.slash("recruiter-zeige-erinnerungen", "Sendet alle derzeitig aktiven Erinnerungen").setDefaultPermissions(DefaultMemberPermissions.DISABLED)
+                .addOptions(
+                        new OptionData(OptionType.USER, "benutzer", "Der Nutzern, zu dem die gesuchte Erinnerung erstellt wurde", false),
+                        new OptionData(OptionType.STRING, "status", "Der Status, nach dem gefiltert werden soll", false)
                                 .addChoice("Anwärter", "Anwärter")
                                 .addChoice("Probezeit", "Probezeit")));
 

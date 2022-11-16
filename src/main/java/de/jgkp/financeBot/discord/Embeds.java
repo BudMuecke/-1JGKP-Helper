@@ -232,7 +232,7 @@ public class Embeds {
         return eb;
     }
 
-    public EmbedBuilder createEmbedSettings(double dailyMembershipFee, int membershipExpiresReminderDays, String notificationChannelId, String spamChannelId, String notificationChannelName, String spamChannelName) {
+    public EmbedBuilder createEmbedSettings(double dailyMembershipFee, int membershipExpiresReminderDays, String notificationChannelId, String spamChannelId, String recruitmentChannelId, String notificationChannelName, String spamChannelName, String recruitmentChannelName) {
 
         EmbedBuilder eb = new EmbedBuilder();
 
@@ -248,6 +248,9 @@ public class Embeds {
         eb.addBlankField(true);
         eb.addField(":mega: Benachrichtigungskanal-Name:", notificationChannelName, false);
         eb.addField(":mega: Benachrichtigungskanal-ID:", notificationChannelId, false);
+        eb.addBlankField(true);
+        eb.addField(":briefcase: Recruitmentkanal-Name:", recruitmentChannelName, false);
+        eb.addField(":briefcase: Recruitmentkanal-ID:", recruitmentChannelId, false);
 
         eb.setFooter("© official 1JGKP Bot", "https://avatars.akamai.steamstatic.com/e2a1030b2bfe144682d465045c05a31f2baabfcf_full.jpg");
 
@@ -304,13 +307,15 @@ public class Embeds {
         return eb;
     }
 
-    public EmbedBuilder createEmbedCandidateTimeEnded(String userName) {
+    public EmbedBuilder createEmbedCandidateTimeEnded(String userName, String status) {
 
         EmbedBuilder eb = new EmbedBuilder();
 
-        eb.setTitle("Die Anwärterzeit von " + userName + " ist heute ausgelaufen", null);
+        eb.setTitle("Recruitment Erinnerung", null);
 
         eb.setColor(new Color(0x3D302B));
+
+        eb.setDescription("**Erinnerung zum Nutzer:** " + userName + "\n**Status des Nutzers:** " + status);
 
         eb.setFooter("© official 1JGKP Bot", "https://avatars.akamai.steamstatic.com/e2a1030b2bfe144682d465045c05a31f2baabfcf_full.jpg");
 
@@ -318,13 +323,15 @@ public class Embeds {
         return eb;
     }
 
-    public EmbedBuilder createEmbedCandidateTrialEnded(String userName) {
+    public EmbedBuilder createEmbedCandidateInfo(String userName, String status, String enddate) {
 
         EmbedBuilder eb = new EmbedBuilder();
 
-        eb.setTitle("Die Probezeit von " + userName + " ist heute ausgelaufen", null);
+        eb.setTitle("Infos zur Erinnerung zum Nutzer " + userName, null);
 
         eb.setColor(new Color(0x3D302B));
+
+        eb.setDescription("**Nutzername:** " + userName + "\n**Status des Nutzers:** " + status + "\n**Erinnerung wird gesendet am:** "+ enddate);
 
         eb.setFooter("© official 1JGKP Bot", "https://avatars.akamai.steamstatic.com/e2a1030b2bfe144682d465045c05a31f2baabfcf_full.jpg");
 

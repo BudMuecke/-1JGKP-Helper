@@ -52,4 +52,24 @@ public class Services {
 
         return dateFormat.format(currentDateNew);
     }
+
+    public int calcDayDifferenceRecruitment(String reminderDate) throws ParseException {
+
+        LocalDate currentDate = new LocalDate();
+
+        SimpleDateFormat sdf = new SimpleDateFormat("dd.MM.yyyy");
+        Date date = sdf.parse(reminderDate);
+        sdf.applyPattern("yyyy-MM-dd");
+        reminderDate = sdf.format(date);
+
+        LocalDate endDate = LocalDate.parse(reminderDate);
+
+        Period p = new Period(endDate, currentDate, PeriodType.days());
+
+        int daysDifference = p.getDays();
+
+        if (daysDifference < 0) {
+            return daysDifference;
+        } else return 1;
+    }
 }

@@ -67,13 +67,8 @@ public class DailyTask {
 
         for (Candidate candidate : candidateList) {
             if (Objects.equals(String.valueOf(services.getCurrentDate()), candidate.getEndDate())) {
-                if (Objects.equals(candidate.getStatus(), "Anwärter")) {
-                    discordReminderWithoutEvents.remindRecruitmentCandidateTimeEnded(candidate.getUserId());
-                    candidateRepository.delete(candidate);
-                } else if (Objects.equals(candidate.getStatus(), "Probezeit")) {
-                    discordReminderWithoutEvents.remindRecruitmentCandidateTrialEnded(candidate.getUserId());
-                    candidateRepository.delete(candidate);
-                }
+                discordReminderWithoutEvents.remindRecruitmentCandidateTimeEnded(candidate.getUserId(), candidate.getStatus());
+                candidateRepository.delete(candidate);
             }
         }
     }

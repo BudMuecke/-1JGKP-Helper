@@ -10,4 +10,5 @@ public interface CandidateRepository extends JpaRepository<Candidate,Long> {
     Candidate findCandidateByUserId(Long id);
     @NotNull
     List<Candidate> findAll();
+    List<Candidate> findAllByStatusContaining(String status);
 }
