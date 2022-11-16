@@ -37,8 +37,9 @@ public class TaskScheduler {
 
                         if (!Objects.equals(String.valueOf(services.getCurrentDate()), accountupdatesService.getCurrentDatabaseDate())){
                             dailyTask.updateAccounts();
+                            dailyTask.checkCandidates();
                             accountupdatesService.setCurrentDatabaseDate();
-                            System.out.println("updates completed");
+                            System.out.println("updates and checks completed");
                         }
 
                     } catch (Exception e) {

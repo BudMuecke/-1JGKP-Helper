@@ -19,4 +19,5 @@ public class Settings {
     private Integer membershipExpiresInXDaysReminderDaysAmount;
     private String leaderChannelId;
     private String helperSpamChannelId;
+    private String recruitmentChannelId;
 }
