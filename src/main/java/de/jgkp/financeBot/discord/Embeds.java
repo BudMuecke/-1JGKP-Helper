@@ -338,5 +338,41 @@ public class Embeds {
         eb.setThumbnail("https://deutsche-squad-gemeinschaft.s3.eu-central-1.amazonaws.com/public/clanlogos/CbEyII5X3dFoly7XING8vXauQKgkBK0mfYhNIlZa.png");
         return eb;
     }
+
+    public EmbedBuilder createEmbedDoneeInfo(String userName, String donatorName, int runtime) {
+
+        EmbedBuilder eb = new EmbedBuilder();
+
+        eb.setTitle("Hey, " + userName +"!", null);
+
+        eb.setColor(new Color(0x3D302B));
+
+        eb.setDescription(donatorName + " hat dir gerade " + runtime +" Monat(e) 1JGKP Mitgliedschaft spendiert!\n\n" +
+                "Du genießt nun alle Vorteile wie zum Beispiel den erweiterten Reserved Slot auf dem DSG Server, wenn du noch keine Mitgliedschaft hattest." +
+                "Solltest du schon eine Mitgliedschaft besessen haben, wurde diese um den oben genannten Betrag verlängert.");
+
+        eb.setFooter("© official 1JGKP Bot", "https://avatars.akamai.steamstatic.com/e2a1030b2bfe144682d465045c05a31f2baabfcf_full.jpg");
+
+        eb.setThumbnail("https://deutsche-squad-gemeinschaft.s3.eu-central-1.amazonaws.com/public/clanlogos/CbEyII5X3dFoly7XING8vXauQKgkBK0mfYhNIlZa.png");
+        return eb;
+    }
+
+    public EmbedBuilder createEmbedRecipientInfo(String recipientName, int runtime) {
+
+        EmbedBuilder eb = new EmbedBuilder();
+
+        eb.setTitle("Hey, " + recipientName +"!", null);
+
+        eb.setColor(new Color(0x3D302B));
+
+        eb.setDescription("Dir wurden soeben " + runtime + " Monate(e) 1JGKP Mitgliedschaft von der 1JGKP Leitung gutgeschrieben!\n\n" +
+                "Du genießt nun alle Vorteile wie zum Beispiel den erweiterten Reserved Slot auf dem DSG Server, wenn du noch keine Mitgliedschaft hattest." +
+                "Solltest du schon eine Mitgliedschaft besessen haben, wurde diese um den oben genannten Betrag verlängert.");
+
+        eb.setFooter("© official 1JGKP Bot", "https://avatars.akamai.steamstatic.com/e2a1030b2bfe144682d465045c05a31f2baabfcf_full.jpg");
+
+        eb.setThumbnail("https://deutsche-squad-gemeinschaft.s3.eu-central-1.amazonaws.com/public/clanlogos/CbEyII5X3dFoly7XING8vXauQKgkBK0mfYhNIlZa.png");
+        return eb;
+    }
 }
 

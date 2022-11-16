@@ -120,10 +120,10 @@ public class BotCommands extends ListenerAdapter {
                     discordReminderEvents.sendConfirmMessage(event, user.getIdLong());
                 }
             }
-            event.deferReply().queue();
             String reviser = event.getUser().getName();
             String newAmount = String.format(Locale.GERMAN, "%,.2f", amount);
             event.getJDA().getTextChannelById(settingsRepository.findSettingsById(1L).getLeaderChannelId()).sendMessageEmbeds(embeds.createEmbedConfirmedPayment(user.getName(), newAmount, date, reviser).build()).queue();
+            event.reply("Zahlung erfolgreich hinzugefügt!").setEphemeral(true).queue();
         } else if (event.getName().equals("meine-mitgliedschaft")) {
             Accounts accounts = accountsRepository.findAccountsByUserId(event.getUser().getIdLong());
 
@@ -319,6 +319,19 @@ public class BotCommands extends ListenerAdapter {
             convertRuntime(event, user, runtime);
             event.reply("Die Laufzeit wurde erfolgreich angerechnet").setEphemeral(true).queue();
             event.getJDA().getTextChannelById(settingsRepository.findSettingsById(1L).getLeaderChannelId()).sendMessageEmbeds(embeds.createEmbedAddRuntime(event.getUser().getName(), user.getName(), runtime).build()).queue();
+
+            event.getJDA().retrieveUserById(user.getIdLong()).queue(recipient -> {
+                String username = user.getName();
+                user.openPrivateChannel()
+                        .flatMap(channel -> channel.sendMessageEmbeds(embeds.createEmbedRecipientInfo(username, runtime).build()).addActionRow(
+                                Button.primary("Mitgliedschaftsinfos", "Mitgliedschaftsinfos"))
+                        )
+                        .queue(null, new ErrorHandler()
+                                .ignore(ErrorResponse.UNKNOWN_MESSAGE)
+                                .handle(
+                                        ErrorResponse.CANNOT_SEND_TO_USER,
+                                        (e) -> event.getJDA().getTextChannelById(settingsRepository.findSettingsById(1L).getLeaderChannelId()).sendMessageEmbeds(embeds.createEmbedCantWriteUser(username, "Information: Laufzeit wurde von Admin gutgeschrieben").build()).queue()));
+            });
         } else if (event.getName().equals("verschenke-mitgliedschaft")) {
             OptionMapping userOption = event.getOption("benutzer");
             OptionMapping runtimeOption = event.getOption("laufzeit-in-monate");
@@ -340,6 +353,15 @@ public class BotCommands extends ListenerAdapter {
                     convertRuntime(event, user, runtime);
                     event.reply("Die Laufzeit wurde erfolgreich übertragen").setEphemeral(true).queue();
                     event.getJDA().getTextChannelById(settingsRepository.findSettingsById(1L).getLeaderChannelId()).sendMessageEmbeds(embeds.createEmbedGiftRuntime(eventUser.getName(), user.getName(), runtime).build()).queue();
+                    user.openPrivateChannel()
+                            .flatMap(channel -> channel.sendMessageEmbeds(embeds.createEmbedDoneeInfo(user.getName(), event.getUser().getName(), runtime).build()).addActionRow(
+                                    Button.primary("Mitgliedschaftsinfos", "Mitgliedschaftsinfos"))
+                            )
+                            .queue(null, new ErrorHandler()
+                                    .ignore(ErrorResponse.UNKNOWN_MESSAGE)
+                                    .handle(
+                                            ErrorResponse.CANNOT_SEND_TO_USER,
+                                            (e) -> event.getJDA().getTextChannelById(settingsRepository.findSettingsById(1L).getLeaderChannelId()).sendMessageEmbeds(embeds.createEmbedCantWriteUser(user.getName(), "Information: Laufzeit wurde von anderem Nutzer geschenkt").build()).queue()));
                 } else {
                     event.reply("Deine Mitgliedschaft läuft nicht mehr so lange, wie du verschenken möchtest. Bitte versuche es noch einmal.").setEphemeral(true).queue();
                 }
