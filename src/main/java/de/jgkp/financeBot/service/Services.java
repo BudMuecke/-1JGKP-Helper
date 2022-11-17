@@ -1,6 +1,7 @@
 package de.jgkp.financeBot.service;
 
 import de.jgkp.financeBot.db.entities.Accounts;
+import net.dv8tion.jda.api.JDA;
 import org.joda.time.LocalDate;
 import org.joda.time.Period;
 import org.joda.time.PeriodType;
@@ -71,5 +72,48 @@ public class Services {
         if (daysDifference < 0) {
             return daysDifference;
         } else return 1;
+    }
+
+    public boolean checkIfTextchannelExists(JDA jda, String id){
+        try {
+            jda.getTextChannelById(id);
+        }catch(Exception e){
+            return false;
+        }
+        return true;
+    }
+
+    public boolean checkIfDoubleNotNegative(double number){
+        if(number < 0){
+            return false;
+        }
+        return true;
+    }
+
+    public boolean checkIfIntegerNotNegative(double number){
+        if(number < 0){
+            return false;
+        }
+        return true;
+    }
+
+    public boolean checkIfRuntimeGreaterThanOne(int runtime){
+        if(runtime < 1){
+            return false;
+        }
+        return true;
+    }
+
+    public boolean validateDate(String date){
+        if(date.length() == 10){
+          if (Integer.parseInt(date.substring(0,2)) < 32 && Integer.parseInt(date.substring(0,2)) > 0){
+              if (Integer.parseInt(date.substring(3,5)) < 13 && Integer.parseInt(date.substring(3,5)) > 0){
+                  if (Integer.parseInt(date.substring(6,10)) > 2020){
+                      return true;
+                  }
+              }
+          }
+        }
+        return false;
     }
 }

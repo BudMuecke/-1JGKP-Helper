@@ -7,10 +7,7 @@ import de.jgkp.financeBot.db.repositories.AccountsRepository;
 import de.jgkp.financeBot.db.repositories.CandidateRepository;
 import de.jgkp.financeBot.db.repositories.SettingsRepository;
 import de.jgkp.financeBot.service.Services;
-import net.dv8tion.jda.api.entities.Guild;
-import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.User;
-import net.dv8tion.jda.api.entities.channel.concrete.PrivateChannel;
 import net.dv8tion.jda.api.events.guild.GuildReadyEvent;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
@@ -24,15 +21,13 @@ import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import net.dv8tion.jda.api.interactions.components.buttons.Button;
 import net.dv8tion.jda.api.requests.ErrorResponse;
-import net.dv8tion.jda.api.requests.RestAction;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import javax.swing.plaf.basic.BasicInternalFrameTitlePane;
+import java.sql.SQLOutput;
 import java.text.DecimalFormat;
 import java.text.ParseException;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -72,9 +67,18 @@ public class BotCommands extends ListenerAdapter {
             String date = dateOption.getAsString();
 
             assert amountOption != null;
+            if(!services.checkIfDoubleNotNegative(amountOption.getAsDouble())){
+                event.reply("Der Betrag darf nicht negativ sein! Bitte versuche es erneut.").setEphemeral(true).queue();
+                return;
+            }
             double amount = amountOption.getAsDouble();
 
             boolean isUserExisting = accountsRepository.existsByUserId(user.getIdLong());
+
+            if (!services.validateDate(date)){
+                event.reply("Das Zahlungsdatum muss im Format tt.MM.jjjj sein! Bitte versuche es erneut.").setEphemeral(true).queue();
+                return;
+            }
 
             try {
                 if (services.calcDayDifference(date) == -1) {
@@ -106,24 +110,64 @@ public class BotCommands extends ListenerAdapter {
                 accounts.setCurrentAccount(amount);
                 accounts.setUserId(user.getIdLong());
 
-                double daysLeft = amount / settingsRepository.findSettingsById(1L).getDailyMembershipFee();
+               double daysLeft = amount / settingsRepository.findSettingsById(1L).getDailyMembershipFee();
 
                 accounts.setHasRecievedMembershipExpiredReminder(false);
                 accounts.setHasReservedSlot(false);
-                accounts.setMembershipDaysLeft(daysLeft);
                 accounts.setUserName(user.getName());
                 accounts.setLastPaymentAmount(amount);
                 accounts.setLastPayment(date);
-                accountsRepository.save(accounts);
 
-                if (!accounts.getHasReservedSlot()) {
-                    discordReminderEvents.sendConfirmMessage(event, user.getIdLong());
+                try {
+                    if(daysLeft <= services.calcDayDifference(date)){
+                        accounts.setMembershipDaysLeft(0.00);
+                        accounts.setCurrentAccount(0.00);
+                        accounts.setHasRecievedMembershipExpiredReminder(true);
+                        accountsRepository.save(accounts);
+                        String reviser = event.getUser().getName();
+                        String newAmount = String.format(Locale.GERMAN, "%,.2f", amount);
+                        event.getJDA().getTextChannelById(settingsRepository.findSettingsById(1L).getLeaderChannelId()).sendMessageEmbeds(embeds.createEmbedConfirmedPayment(user.getName(), newAmount, date, reviser).build()).queue();
+                        event.reply("Zahlung erfolgreich hinzugefügt!").setEphemeral(true).queue();
+                        return;
+                    }else {
+                        if (!accounts.getHasReservedSlot()) {
+                            discordReminderEvents.sendConfirmMessage(event, user.getIdLong());
+                        }
+                    }
+                } catch (ParseException e) {
+                    throw new RuntimeException(e);
                 }
+
+                try {
+                    if (services.calcDayDifference(date) > 30){
+                        daysLeft = amount / settingsRepository.findSettingsById(1L).getDailyMembershipFee() - services.calcDayDifference(date);
+                    }
+
+                    accounts.setMembershipDaysLeft(daysLeft);
+                    amount = settingsRepository.findSettingsById(1L).getDailyMembershipFee() * daysLeft;
+                    accounts.setCurrentAccount(amount);
+                } catch (ParseException e) {
+                    throw new RuntimeException(e);
+                }
+
+                accountsRepository.save(accounts);
             }
             String reviser = event.getUser().getName();
             String newAmount = String.format(Locale.GERMAN, "%,.2f", amount);
             event.getJDA().getTextChannelById(settingsRepository.findSettingsById(1L).getLeaderChannelId()).sendMessageEmbeds(embeds.createEmbedConfirmedPayment(user.getName(), newAmount, date, reviser).build()).queue();
             event.reply("Zahlung erfolgreich hinzugefügt!").setEphemeral(true).queue();
+            event.getJDA().retrieveUserById(user.getId()).queue(userName -> {
+                String username = user.getName();
+                user.openPrivateChannel()
+                        .flatMap(channel -> channel.sendMessageEmbeds(embeds.createEmbedConfirmedPaymentUser(user.getName(), newAmount, date, reviser).build()).addActionRow(
+                                Button.primary("Mitgliedschaftsinfos", "Mitgliedschaftsinfos"))
+                        )
+                        .queue(null, new ErrorHandler()
+                                .ignore(ErrorResponse.UNKNOWN_MESSAGE)
+                                .handle(
+                                        ErrorResponse.CANNOT_SEND_TO_USER,
+                                        (e) -> event.getJDA().getTextChannelById(settingsRepository.findSettingsById(1L).getLeaderChannelId()).sendMessageEmbeds(embeds.createEmbedCantWriteUser(username, "Zahlungsbestätigung: Zahlungsdetails zur letzten Zahlung").build()).queue()));
+            });
         } else if (event.getName().equals("meine-mitgliedschaft")) {
             Accounts accounts = accountsRepository.findAccountsByUserId(event.getUser().getIdLong());
 
@@ -145,7 +189,7 @@ public class BotCommands extends ListenerAdapter {
                 String name = accounts.getUserName();
                 String lastPayment = accounts.getLastPayment();
                 Double amount = accounts.getLastPaymentAmount();
-                DecimalFormat df = new DecimalFormat("#.00");
+                DecimalFormat df = new DecimalFormat("0.00");
                 String stringAmount = df.format(amount);
                 double daysLeft = accounts.getMembershipDaysLeft();
                 daysLeft = Math.round(100.0 * daysLeft) / 100.0;
@@ -218,6 +262,11 @@ public class BotCommands extends ListenerAdapter {
 
             } else if (userOption == null && minimumDaysOption == null) {
 
+                if (!services.checkIfIntegerNotNegative(maximumDaysOption.getAsDouble())){
+                    event.reply("Die Maximalanzahl an verbleibenden Tagen kann nicht negativ sein! Bitte versuche es erneut.").setEphemeral(true).queue();
+                    return;
+                }
+
                 double maximumDays = maximumDaysOption.getAsDouble();
                 List<Accounts> accountsList = accountsRepository.findAllByMembershipDaysLeftLessThanEqual(maximumDays);
 
@@ -228,6 +277,11 @@ public class BotCommands extends ListenerAdapter {
 
                 extractDataFromList(event, accountsList);
             } else if (userOption == null && maximumDaysOption == null) {
+
+                if (!services.checkIfIntegerNotNegative(minimumDaysOption.getAsDouble())){
+                    event.reply("Die Minimalanzahl an verbleibenden Tagen kann nicht negativ sein! Bitte versuche es erneut.").setEphemeral(true).queue();
+                    return;
+                }
 
                 double minimumDays = minimumDaysOption.getAsDouble();
                 List<Accounts> accountsList = accountsRepository.findAllByMembershipDaysLeftGreaterThanEqual(minimumDays);
@@ -252,6 +306,16 @@ public class BotCommands extends ListenerAdapter {
                 extractDataFromSingleAccount(event, accounts);
                 event.reply("Die angefragten Informationen wurden in " + event.getJDA().getTextChannelById(settingsRepository.findSettingsById(1L).getHelperSpamChannelId()).getName() + " gesendet").setEphemeral(true).queue();
             } else if (userOption == null && maximumDaysOption != null && minimumDaysOption != null) {
+
+                if (!services.checkIfIntegerNotNegative(maximumDaysOption.getAsDouble())){
+                    event.reply("Die Maximalanzahl an verbleibenden Tagen kann nicht negativ sein! Bitte versuche es erneut.").setEphemeral(true).queue();
+                    return;
+                }
+
+                if (!services.checkIfIntegerNotNegative(minimumDaysOption.getAsDouble())){
+                    event.reply("Die Minimalanzahl an verbleibenden Tagen kann nicht negativ sein! Bitte versuche es erneut.").setEphemeral(true).queue();
+                    return;
+                }
 
                 double maximumDays = maximumDaysOption.getAsDouble();
                 double minimumDays = minimumDaysOption.getAsDouble();
@@ -286,22 +350,43 @@ public class BotCommands extends ListenerAdapter {
             Settings settings = settingsRepository.findSettingsById(1L);
 
             if (dailyMembershipFee != null) {
+                if (!services.checkIfDoubleNotNegative(dailyMembershipFee.getAsDouble())){
+                    event.reply("Die tägliche Mitgliedschaftsgebühr kann nicht negativ sein! Bitte versuche es erneut.").setEphemeral(true).queue();
+                    return;
+                }
+
                 settings.setDailyMembershipFee(dailyMembershipFee.getAsDouble());
             }
 
             if (reminderDays != null) {
+                if (!services.checkIfIntegerNotNegative(reminderDays.getAsInt())){
+                    event.reply("Die Anzahl der Tage, die die Erinnerung vor Ablauf gesendet werden soll kann nicht negativ sein! Bitte versuche es erneut.").setEphemeral(true).queue();
+                    return;
+                }
                 settings.setMembershipExpiresInXDaysReminderDaysAmount(reminderDays.getAsInt());
             }
 
             if (spamChannelId != null) {
+                if (!services.checkIfTextchannelExists(event.getJDA(), spamChannelId.getAsString())){
+                    event.reply("Die Spam-Kanal-Id ist nicht gültig! Bitte versuche es erneut.").setEphemeral(true).queue();
+                    return;
+                }
                 settings.setHelperSpamChannelId(spamChannelId.getAsString());
             }
 
             if (notificationChannelId != null) {
+                if (!services.checkIfTextchannelExists(event.getJDA(), notificationChannelId.getAsString())){
+                    event.reply("Die Benachrichtigungskanal-Id ist nicht gültig! Bitte versuche es erneut.").setEphemeral(true).queue();
+                    return;
+                }
                 settings.setLeaderChannelId(notificationChannelId.getAsString());
             }
 
             if (recruitmentChannelId != null) {
+                if (!services.checkIfTextchannelExists(event.getJDA(), recruitmentChannelId.getAsString())){
+                    event.reply("Die Recruitmentkanal-Id ist nicht gültig! Bitte versuche es erneut.").setEphemeral(true).queue();
+                    return;
+                }
                 settings.setRecruitmentChannelId(recruitmentChannelId.getAsString());
             }
 
@@ -315,6 +400,11 @@ public class BotCommands extends ListenerAdapter {
             User user = userOption.getAsUser();
             assert runtimeOption != null;
             int runtime = runtimeOption.getAsInt();
+
+            if(!services.checkIfRuntimeGreaterThanOne(runtime)){
+                event.reply("Die Laufzeit kann nicht geringer als 1 Monat sein! Bitte versuche es erneut.").setEphemeral(true).queue();
+                return;
+            }
 
             convertRuntime(event, user, runtime);
             event.reply("Die Laufzeit wurde erfolgreich angerechnet").setEphemeral(true).queue();
@@ -341,6 +431,11 @@ public class BotCommands extends ListenerAdapter {
             User user = userOption.getAsUser();
             assert runtimeOption != null;
             int runtime = runtimeOption.getAsInt();
+
+            if(!services.checkIfRuntimeGreaterThanOne(runtime)){
+                event.reply("Die Laufzeit kann nicht geringer als 1 Monat sein! Bitte versuche es erneut.").setEphemeral(true).queue();
+                return;
+            }
 
             if (accountsRepository.existsByUserId(eventUser.getIdLong())) {
                 Accounts eventUserAccount = accountsRepository.findAccountsByUserId(eventUser.getIdLong());
@@ -370,17 +465,22 @@ public class BotCommands extends ListenerAdapter {
             }
         } else if (event.getName().equals("recruiter-erstelle-erinnerung")) {
             OptionMapping optionUser = event.getOption("benutzer");
-            OptionMapping optionEnddatum = event.getOption("enddatum");
+            OptionMapping optionEndDate = event.getOption("enddatum");
             OptionMapping optionStatus = event.getOption("status");
 
-            assert optionEnddatum != null;
-            String date = optionEnddatum.getAsString();
+            assert optionEndDate != null;
+            String date = optionEndDate.getAsString();
 
             assert optionUser != null;
             User user = optionUser.getAsUser();
 
             assert optionStatus != null;
             String status = optionStatus.getAsString();
+
+            if (!services.validateDate(date)){
+                event.reply("Das Enddatum muss im Format tt.MM.jjjj sein! Bitte versuche es erneut.").setEphemeral(true).queue();
+                return;
+            }
 
             try {
                 if (services.calcDayDifferenceRecruitment(date) == 1) {
@@ -567,7 +667,7 @@ public class BotCommands extends ListenerAdapter {
                 .addOptions(
                         new OptionData(OptionType.USER, "benutzer", "Der Nutzer, der die Zahlung geleistet hat", true),
                         new OptionData(OptionType.STRING, "zahlungsdatum", "Das Datum, an dem der Nutzer die Zahlung geleistet hat. Format: tt.MM.jjjj", true),
-                        new OptionData(OptionType.NUMBER, "betrag", "Der Geldbetrag, den der Nutzer bezahlt hat. Format: xxx,xx", true).setRequiredRange(0.01, 9007199254740991.000000)));
+                        new OptionData(OptionType.NUMBER, "betrag", "Der Geldbetrag, den der Nutzer bezahlt hat. Format: xxx,xx", true).setRequiredRange(1.00, 9007199254740991.000000)));
 
         commandData.add(Commands.slash("admin-bekomme-benutzerdaten", "Sendet alle Benutzerdaten je nach gewählten Optionen").setDefaultPermissions(DefaultMemberPermissions.DISABLED)
                 .addOptions(
@@ -579,7 +679,7 @@ public class BotCommands extends ListenerAdapter {
 
         commandData.add(Commands.slash("admin-ändere-einstellungen", "Ändert die aktuellen Einstellungen").setDefaultPermissions(DefaultMemberPermissions.DISABLED)
                 .addOptions(
-                        new OptionData(OptionType.NUMBER, "tägliche-mitgliedschaftsgebühr", "Die Mitglieschaftsgebühr, die täglich erhoben wird. Format: xxx.xx", false).setRequiredRange(0.01, 9007199254740991.000000),
+                        new OptionData(OptionType.NUMBER, "tägliche-mitgliedschaftsgebühr", "Die Mitglieschaftsgebühr, die täglich erhoben wird", false).setRequiredRange(0.01, 9007199254740991.000000),
                         new OptionData(OptionType.INTEGER, "erinnerung-x-tage-vor-ablauf", "Die Anzahl an Tagen, bei denen die erste Erinnerung gesendet werden soll", false),
                         new OptionData(OptionType.STRING, "spam-kanal-id", "Die ID des Textkanals in den der Bot die Antworten senden soll", false),
                         new OptionData(OptionType.STRING, "benachrichtigungskanal-id", "Die ID des Textkanals in den der Bot Benachrichtigungen senden soll", false),
@@ -599,7 +699,7 @@ public class BotCommands extends ListenerAdapter {
                 .addOptions(
                         new OptionData(OptionType.USER, "benutzer", "Der Nutzern, zu dem eine Erinnerung erstellt werden soll", true),
                         new OptionData(OptionType.STRING, "enddatum", "Das Datum, an dem die Erinnerung gesendet werden soll. Format: tt.MM.jjjj", true),
-                        new OptionData(OptionType.STRING, "status", "Der Status, den der Nutzer hat", true)
+                        new OptionData(OptionType.STRING, "status", "Der Status, den der Nutzer derzeit hat", true)
                                 .addChoice("Anwärter", "Anwärter")
                                 .addChoice("Probezeit", "Probezeit")));
 

@@ -221,7 +221,7 @@ public class Embeds {
                 "**Ich möchte meine Mitgliedschaft verlängern** \n \n" +
                 "Bei einer Verlängerung gelten die oben aufgeführten Voraussetzungen, Vorteile und Laufzeiten. Bitte beachte: "+
                 "Deine noch verbleibende Mitgliedschaft wird mit der Verlängerten verrechnet. \n \n" +
-                "Nach Eingang der Zahlung kann die Bearbeitung mehrere Tage dauern. Für diese Zeit berechnen wir dir natürlich keine Gebühr! \n \n " +
+                "Nach Eingang der Zahlung kann die Bearbeitung mehrere Tage dauern. Für diese Zeit ziehen wir dir natürlich keine Mitgliedschaftslaufzeit ab! \n \n " +
                 "Bei Fragen, wende dich bitte an ein 1JGKP Leitungsmitglied! \n \n" +
                 "Danke für deine Unterstützung! :)"
         );
@@ -368,6 +368,32 @@ public class Embeds {
         eb.setDescription("Dir wurden soeben " + runtime + " Monate(e) 1JGKP Mitgliedschaft von der 1JGKP Leitung gutgeschrieben!\n\n" +
                 "Du genießt nun alle Vorteile wie zum Beispiel den erweiterten Reserved Slot auf dem DSG Server, wenn du noch keine Mitgliedschaft hattest." +
                 "Solltest du schon eine Mitgliedschaft besessen haben, wurde diese um den oben genannten Betrag verlängert.");
+
+        eb.setFooter("© official 1JGKP Bot", "https://avatars.akamai.steamstatic.com/e2a1030b2bfe144682d465045c05a31f2baabfcf_full.jpg");
+
+        eb.setThumbnail("https://deutsche-squad-gemeinschaft.s3.eu-central-1.amazonaws.com/public/clanlogos/CbEyII5X3dFoly7XING8vXauQKgkBK0mfYhNIlZa.png");
+        return eb;
+    }
+
+    public EmbedBuilder createEmbedConfirmedPaymentUser(String username, String amount, String date, String reviser) {
+
+        String NewAmount = String.valueOf(amount).replace(".", ",");
+
+        EmbedBuilder eb = new EmbedBuilder();
+
+        eb.setTitle("Zahlungsinformationen von " + username, null);
+
+        eb.setColor(new Color(0x3D302B));
+
+        eb.setDescription("Deine 1JGKP Mitgliedschaft wurde hinzugefügt oder verlängert!");
+
+        eb.addField(":bust_in_silhouette: Name:", username, true);
+        eb.addField(":date: Zahlungsdatum:", date, true);
+        eb.addBlankField(true);
+        eb.addField(":money_with_wings: Betrag:", NewAmount + "€", true);
+        eb.addField(":pencil: Bearbeiter:", reviser, true);
+        eb.addBlankField(true);
+
 
         eb.setFooter("© official 1JGKP Bot", "https://avatars.akamai.steamstatic.com/e2a1030b2bfe144682d465045c05a31f2baabfcf_full.jpg");
 
