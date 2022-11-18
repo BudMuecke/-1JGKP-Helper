@@ -348,7 +348,7 @@ public class Embeds {
         eb.setColor(new Color(0x3D302B));
 
         eb.setDescription(donatorName + " hat dir gerade " + runtime +" Monat(e) 1JGKP Mitgliedschaft spendiert!\n\n" +
-                "Du genießt nun alle Vorteile wie zum Beispiel den erweiterten Reserved Slot auf dem DSG Server, wenn du noch keine Mitgliedschaft hattest." +
+                "Du genießt nun alle Vorteile wie zum Beispiel den erweiterten Reserved Slot auf dem DSG Server, wenn du noch keine Mitgliedschaft hattest. " +
                 "Solltest du schon eine Mitgliedschaft besessen haben, wurde diese um den oben genannten Betrag verlängert.");
 
         eb.setFooter("© official 1JGKP Bot", "https://avatars.akamai.steamstatic.com/e2a1030b2bfe144682d465045c05a31f2baabfcf_full.jpg");

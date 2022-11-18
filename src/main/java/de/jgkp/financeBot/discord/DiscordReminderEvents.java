@@ -26,7 +26,7 @@ public class DiscordReminderEvents {
                 .map(User::getName)
                 .queue(name -> {
                     event.getHook().sendMessageEmbeds(embeds.createEmbedConfirmMessage(
-                            name).build()).setEphemeral(true).addActionRow(
+                            name).build()).setEphemeral(false).addActionRow(
                             Button.link("https://dsg-gaming.de/admin/adminconfigs/1/edit", "DSG Website"), Button.primary("Bestätige Vergabe", "Bestätige Vergabe")
                     ).queue((message) -> {
                         Accounts accounts = accountsRepository.findAccountsByUserId(userId);
