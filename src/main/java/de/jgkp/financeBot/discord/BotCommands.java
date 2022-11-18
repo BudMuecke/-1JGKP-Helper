@@ -1,5 +1,6 @@
 package de.jgkp.financeBot.discord;
 
+import de.jgkp.financeBot.config.Configuration;
 import de.jgkp.financeBot.db.entities.Accounts;
 import de.jgkp.financeBot.db.entities.Candidate;
 import de.jgkp.financeBot.db.entities.Settings;
@@ -7,6 +8,9 @@ import de.jgkp.financeBot.db.repositories.AccountsRepository;
 import de.jgkp.financeBot.db.repositories.CandidateRepository;
 import de.jgkp.financeBot.db.repositories.SettingsRepository;
 import de.jgkp.financeBot.service.Services;
+import net.dv8tion.jda.api.entities.Guild;
+import net.dv8tion.jda.api.entities.Member;
+import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.events.guild.GuildReadyEvent;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
@@ -21,6 +25,7 @@ import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import net.dv8tion.jda.api.interactions.components.buttons.Button;
 import net.dv8tion.jda.api.requests.ErrorResponse;
+import net.dv8tion.jda.internal.requests.Route;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -42,15 +47,17 @@ public class BotCommands extends ListenerAdapter {
     private SettingsRepository settingsRepository;
     private Embeds embeds;
     private CandidateRepository candidateRepository;
+    private Configuration configuration;
 
     @Autowired
-    public BotCommands(AccountsRepository accountsRepository, Services services, DiscordReminderEvents discordReminderEvents, SettingsRepository settingsRepository, Embeds embeds, CandidateRepository candidateRepository) {
+    public BotCommands(AccountsRepository accountsRepository, Services services, DiscordReminderEvents discordReminderEvents, SettingsRepository settingsRepository, Embeds embeds, CandidateRepository candidateRepository, Configuration configuration) {
         this.accountsRepository = accountsRepository;
         this.services = services;
         this.discordReminderEvents = discordReminderEvents;
         this.settingsRepository = settingsRepository;
         this.embeds = embeds;
         this.candidateRepository = candidateRepository;
+        this.configuration = configuration;
     }
 
     @Override
@@ -431,6 +438,21 @@ public class BotCommands extends ListenerAdapter {
             User user = userOption.getAsUser();
             assert runtimeOption != null;
             int runtime = runtimeOption.getAsInt();
+
+          Guild guild = event.getJDA().getGuildById(configuration.getGuildId());
+            assert guild != null;
+
+            guild.retrieveMemberById(user.getIdLong()).queue();
+            Member member = guild.getMemberById(user.getIdLong());
+            List<Member> memberList = guild.getMembersWithRoles(guild.getRolesByName("Mitglied", true));
+            List<Member> memberList1 = guild.getMembersWithRoles(guild.getRolesByName("Anwärter", true));
+            List<Member> memberList2 = guild.getMembersWithRoles(guild.getRolesByName("Probezeit", true));
+
+            if (!memberList.contains(member) && !memberList1.contains(member) && !memberList2.contains(member)){
+                event.reply("Du kannst nur einem Anwärter, einem Probezeitler oder einem Mitglied eine Mitgliedschaft schenken!").setEphemeral(true).queue();
+                return;
+            }
+
 
             if(!services.checkIfRuntimeGreaterThanOne(runtime)){
                 event.reply("Die Laufzeit kann nicht geringer als 1 Monat sein! Bitte versuche es erneut.").setEphemeral(true).queue();
