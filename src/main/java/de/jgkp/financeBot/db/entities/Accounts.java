@@ -23,3 +23,4 @@ public class Accounts {
     private Boolean hasRecievedMembershipExpiredReminder;
     private Long leaderReminderMessageId;
 }
+

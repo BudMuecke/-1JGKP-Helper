@@ -116,4 +116,12 @@ public class Services {
         }
         return false;
     }
+
+    public String parseDate(String endDate) throws ParseException {
+        SimpleDateFormat sdf = new SimpleDateFormat("dd.MM.yyyy");
+        Date date = sdf.parse(endDate);
+        sdf.applyPattern("yyyy-MM-dd");
+        endDate = sdf.format(date);
+        return endDate;
+    }
 }

@@ -10,6 +10,7 @@ import de.jgkp.financeBot.discord.DiscordReminderWithoutEvents;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.text.ParseException;
 import java.util.List;
 import java.util.Objects;
 
@@ -62,11 +63,11 @@ public class DailyTask {
         }
     }
 
-    public void checkCandidates(){
+    public void checkCandidates() throws ParseException {
         List<Candidate> candidateList = candidateRepository.findAll();
 
         for (Candidate candidate : candidateList) {
-            if (Objects.equals(String.valueOf(services.getCurrentDate()), candidate.getEndDate())) {
+            if (Objects.equals(String.valueOf(services.getCurrentDate()), services.parseDate(String.valueOf(candidate.getEndDate())))) {
                 discordReminderWithoutEvents.remindRecruitmentCandidateTimeEnded(candidate.getUserId(), candidate.getStatus());
                 candidateRepository.delete(candidate);
             }

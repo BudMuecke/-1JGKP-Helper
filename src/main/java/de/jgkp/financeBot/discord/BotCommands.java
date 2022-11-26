@@ -151,7 +151,6 @@ public class BotCommands extends ListenerAdapter {
                     }
 
                     accounts.setMembershipDaysLeft(daysLeft);
-                    amount = settingsRepository.findSettingsById(1L).getDailyMembershipFee() * daysLeft;
                     accounts.setCurrentAccount(amount);
                 } catch (ParseException e) {
                     throw new RuntimeException(e);
@@ -527,13 +526,17 @@ public class BotCommands extends ListenerAdapter {
 
             if (userOption != null) {
                 User user = userOption.getAsUser();
-                Candidate candidate = candidateRepository.findCandidateByUserId(user.getIdLong());
+                List<Candidate> candidateList = candidateRepository.findAllByUserId(user.getIdLong());
 
-                if (candidate == null) {
+                if (candidateList.size() == 0) {
                     event.reply("Es gibt keine Erinnerung zu diesem Nutzer in der Datenbank.").setEphemeral(true).queue();
                     return;
                 }
-                event.getJDA().getTextChannelById(settingsRepository.findSettingsById(1L).getRecruitmentChannelId()).sendMessageEmbeds(embeds.createEmbedCandidateInfo(candidate.getUserName(), candidate.getStatus(), candidate.getEndDate()).build()).queue();
+
+                for (int i = 0; i < candidateList.size(); i++){
+                    Candidate candidate = candidateList.get(i);
+                    event.getJDA().getTextChannelById(settingsRepository.findSettingsById(1L).getRecruitmentChannelId()).sendMessageEmbeds(embeds.createEmbedCandidateInfo(candidate.getUserName(), candidate.getStatus(), candidate.getEndDate()).build()).queue();
+                }
                 event.reply("Die angefragten Informationen wurden in " + event.getJDA().getTextChannelById(settingsRepository.findSettingsById(1L).getRecruitmentChannelId()).getName() + " gesendet").setEphemeral(true).queue();
 
             } else if (statusOption != null) {
